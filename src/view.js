@@ -98,22 +98,20 @@ const renderInvoiceDialog = ({
         <p>click QR code to copy invoice</p>
         <select name="lightning-wallet">
           ${options
-            .map(
-              ({ label, value }) =>
-                `<option value="${value}" ${
-                  cachedLightningUri === value ? "selected" : ""
-                }>${label}</option>`
-            )
-            .join("")}
+      .map(
+        ({ label, value }) =>
+          `<option value="${value}" ${cachedLightningUri === value ? "selected" : ""
+          }>${label}</option>`
+      )
+      .join("")}
         </select>
         <button class="cta-button"
-          ${
-            buttonColor
-              ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(
-                  buttonColor
-                )}"`
-              : ""
-          } 
+          ${buttonColor
+      ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(
+        buttonColor
+      )}"`
+      : ""
+    } 
         >Open Wallet</button>
       `);
   const qrCodeEl = invoiceDialog.querySelector(".qrcode");
@@ -163,6 +161,7 @@ const renderAmountDialog = async ({
   relays,
   buttonColor,
   anon,
+  satsAmount // Add satsAmount from monetization data
 }) => {
   const truncateNip19Entity = (hex) =>
     `${hex.substring(0, 12)}...${hex.substring(npub.length - 12)}`;
@@ -192,78 +191,58 @@ const renderAmountDialog = async ({
       <p>${noteId ? truncateNip19Entity(noteId) : truncateNip19Entity(npub)}</p>
     `;
   };
-  const amountDialog = renderDialog(`
-      <button class="close-button">X</button>
-      <div class="dialog-header-container">
-        <h2 class="skeleton-placeholder"></h2>
-          <img
-            src="${nostrichAvatar}"
-            width="80"
-            height="80"
-            alt="placeholder avatar"
-          />
-        <p class="skeleton-placeholder"></p>
-      </div>
-      <div class="preset-zap-options-container">
-        <button data-value="21">21 ⚡️</button>
-        <button data-value="69">69 ⚡️</button>
-        <button data-value="420">420 ⚡️</button>
-        <button data-value="1337">1337 ⚡️</button>
-        <button data-value="5000">5k ⚡️</button>
-        <button data-value="10000">10k ⚡️</button>
-        <button data-value="21000">21k ⚡️</button>
-        <button data-value="1000000">1M ⚡️</button>
-      </div>
-      <form>
-        <input name="amount" type="number" placeholder="amount in sats" required />
-        <input name="comment" placeholder="optional comment" />
-        <button class="cta-button" 
-          ${
-            buttonColor
-              ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(
-                  buttonColor
-                )}"`
-              : ""
-          } 
-          type="submit" disabled>Zap</button>
-      </form>
-    `);
 
-  const presetButtonsContainer = amountDialog.querySelector(
-    ".preset-zap-options-container"
-  );
+  // Updated amountDialog: prefill amount and disable input
+  const amountDialog = renderDialog(`
+    <button class="close-button">X</button>
+    <div class="dialog-header-container">
+      <h2 class="skeleton-placeholder"></h2>
+        <img
+          src="${nostrichAvatar}"
+          width="80"
+          height="80"
+          alt="placeholder avatar"
+        />
+      <p class="skeleton-placeholder"></p>
+    </div>
+    <div class="preset-zap-options-container" style="display: none;"></div>
+    <form>
+      <input name="amount" type="number" value="${satsAmount}" disabled /> <!-- Prefill and disable amount -->
+      <input name="comment" value="Zapping " disabled />
+      <button class="cta-button" 
+        ${buttonColor
+    ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(buttonColor)}"`
+    : ""
+  } 
+        type="submit" disabled>Zap</button>
+    </form>
+  `);
+
   const form = amountDialog.querySelector("form");
-  const amountInput = amountDialog.querySelector('input[name="amount"]');
   const commentInput = amountDialog.querySelector('input[name="comment"]');
-  const zapButtton = amountDialog.querySelector('button[type="submit"]');
-  const dialogHeaderContainer = amountDialog.querySelector(
-    ".dialog-header-container"
-  );
+  const zapButton = amountDialog.querySelector('button[type="submit"]');
+  const dialogHeaderContainer = amountDialog.querySelector(".dialog-header-container");
+
   const handleError = (error) => {
     amountDialog.close();
-
     const errorDialog = renderErrorDialog(error, npub);
-
     errorDialog.showModal();
   };
 
   getDialogHeader()
     .then((htmlString) => {
       dialogHeaderContainer.innerHTML = htmlString;
-      zapButtton.disabled = false;
+      zapButton.disabled = false;
     })
     .catch(handleError);
 
   const setZapButtonToLoadingState = () => {
-    zapButtton.disabled = true;
-    zapButtton.innerHTML = `<div class="spinner">Loading</div>`;
+    zapButton.disabled = true;
+    zapButton.innerHTML = `<div class="spinner">Loading</div>`;
   };
   const setZapButtonToDefaultState = () => {
-    zapButtton.disabled = false;
-    zapButtton.innerHTML = "Zap";
-  };
-  const setAmountValue = (value) => {
-    amountInput.value = value;
+    zapButton.disabled = false;
+    zapButton.innerHTML = "Zap";
   };
 
   amountDialog.addEventListener("close", function () {
@@ -277,20 +256,13 @@ const renderAmountDialog = async ({
       amountDialog.close();
     });
 
-  presetButtonsContainer.addEventListener("click", function (event) {
-    if (event.target.matches("button")) {
-      setAmountValue(event.target.getAttribute("data-value"));
-      amountInput.focus();
-    }
-  });
-
   const zapEndpoint = metadataPromise.then(getZapEndpoint);
 
   form.addEventListener("submit", async function (event) {
     event.preventDefault();
     setZapButtonToLoadingState();
 
-    const amount = Number(amountInput.value) * 1000;
+    const amount = satsAmount * 1000; // Predefined amount from monetization data
     const comment = commentInput.value;
 
     try {
@@ -366,6 +338,7 @@ export const init = async ({
   cachedAmountDialog,
   buttonColor,
   anon,
+  satsAmount // Add satsAmount
 }) => {
   let amountDialog = cachedAmountDialog;
   try {
@@ -376,6 +349,7 @@ export const init = async ({
         relays,
         buttonColor,
         anon,
+        satsAmount // Pass satsAmount
       });
     }
     amountDialog.showModal();
@@ -404,6 +378,7 @@ export const initTarget = (targetEl) => {
     const relays = targetEl.getAttribute("data-relays");
     const buttonColor = targetEl.getAttribute("data-button-color");
     const anon = targetEl.getAttribute("data-anon") === "true";
+    const satsAmount = targetEl.getAttribute("data-sats-amount"); // Extract satsAmount
 
     if (cachedParams) {
       if (
@@ -411,13 +386,14 @@ export const initTarget = (targetEl) => {
         cachedParams.noteId !== noteId ||
         cachedParams.relays !== relays ||
         cachedParams.buttonColor !== buttonColor ||
-        cachedParams.anon !== anon
+        cachedParams.anon !== anon ||
+        cachedParams.satsAmount !== satsAmount // Compare satsAmount
       ) {
         cachedAmountDialog = null;
       }
     }
 
-    cachedParams = { npub, noteId, relays, buttonColor, anon };
+    cachedParams = { npub, noteId, relays, buttonColor, anon, satsAmount };
 
     cachedAmountDialog = await init({
       npub,
@@ -426,6 +402,7 @@ export const initTarget = (targetEl) => {
       cachedAmountDialog,
       buttonColor,
       anon,
+      satsAmount // Pass satsAmount
     });
   });
 };
