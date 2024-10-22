@@ -72,6 +72,7 @@ const renderInvoiceDialog = ({
   invoice,
   relays,
   buttonColor,
+  fileUrl // Accept fileUrl parameter
 }) => {
   const cachedLightningUri = getCachedLightningUri();
   const options = [
@@ -89,41 +90,54 @@ const renderInvoiceDialog = ({
     { label: "Blixt", value: "blixtwallet:lightning:" },
     { label: "River", value: "river://" },
   ];
+
   const invoiceDialog = renderDialog(`
-        <button class="close-button">X</button>
-        ${dialogHeader}
-        <div class="qrcode">
-          <div class="overlay">copied invoice to clipboard</div>
-        </div>
-        <p>click QR code to copy invoice</p>
-        <select name="lightning-wallet">
-          ${options
-      .map(
-        ({ label, value }) =>
-          `<option value="${value}" ${cachedLightningUri === value ? "selected" : ""
-          }>${label}</option>`
-      )
-      .join("")}
-        </select>
-        <button class="cta-button"
-          ${buttonColor
-      ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(
-        buttonColor
-      )}"`
-      : ""
-    } 
-        >Open Wallet</button>
-      `);
+    <button class="close-button">X</button>
+    ${dialogHeader}
+    <div class="qrcode">
+      <div class="overlay">copied invoice to clipboard</div>
+    </div>
+    <p>click QR code to copy invoice</p>
+    <select name="lightning-wallet">
+      ${options
+        .map(
+          ({ label, value }) =>
+            `<option value="${value}" ${cachedLightningUri === value ? "selected" : ""}>${label}</option>`
+        )
+        .join("")}
+    </select>
+    <button class="cta-button"
+      ${buttonColor ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(buttonColor)}"` : ""}
+    >Open Wallet</button>
+  `);
+
   const qrCodeEl = invoiceDialog.querySelector(".qrcode");
-  const lightningWalletEl = invoiceDialog.querySelector(
-    'select[name="lightning-wallet"]'
-  );
+  const lightningWalletEl = invoiceDialog.querySelector('select[name="lightning-wallet"]');
   const ctaButtonEl = invoiceDialog.querySelector(".cta-button");
   const overlayEl = qrCodeEl.querySelector(".overlay");
+
   const closePool = listenForZapReceipt({
     relays,
     invoice,
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Notify the worker that the zap was successful
+      const response = await fetch(`https://zapwall.nostrmedia.com?notify-zap=true&fileUrl=${encodeURIComponent(fileUrl)}`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.unlocked && data.sessionToken) {
+          // Use the session token to unlock the file, dynamically using `fileUrl`
+          window.location.href = `${fileUrl}?sessionToken=${data.sessionToken}`;
+        } else {
+          alert('Error unlocking the file. Please try again.');
+        }
+      } else {
+        alert('Error communicating with the server. Please try again.');
+      }
+
+      // Close the invoice dialog
       invoiceDialog.close();
     },
   });
@@ -146,11 +160,9 @@ const renderInvoiceDialog = ({
     invoiceDialog.remove();
   });
 
-  invoiceDialog
-    .querySelector(".close-button")
-    .addEventListener("click", function () {
-      invoiceDialog.close();
-    });
+  invoiceDialog.querySelector(".close-button").addEventListener("click", function () {
+    invoiceDialog.close();
+  });
 
   return invoiceDialog;
 };
@@ -161,7 +173,8 @@ const renderAmountDialog = async ({
   relays,
   buttonColor,
   anon,
-  satsAmount // Add satsAmount from monetization data
+  satsAmount,   // Add satsAmount from monetization data
+  fileUrl       // Add fileUrl from monetization data
 }) => {
   const truncateNip19Entity = (hex) =>
     `${hex.substring(0, 12)}...${hex.substring(npub.length - 12)}`;
@@ -196,6 +209,7 @@ const renderAmountDialog = async ({
   const amountDialog = renderDialog(`
     <button class="close-button">X</button>
     <div class="dialog-header-container">
+    <p>You're about to send Bitcoin to the file owner:</p>
       <h2 class="skeleton-placeholder"></h2>
         <img
           src="${nostrichAvatar}"
@@ -208,12 +222,12 @@ const renderAmountDialog = async ({
     <div class="preset-zap-options-container" style="display: none;"></div>
     <form>
       <input name="amount" type="number" value="${satsAmount}" disabled /> <!-- Prefill and disable amount -->
-      <input name="comment" value="Zapping " disabled />
+      <input name="comment" value="Zap to unlock ${fileUrl}" disabled /> <!-- Prefill comment with file URL -->
       <button class="cta-button" 
         ${buttonColor
-    ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(buttonColor)}"`
-    : ""
-  } 
+          ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(buttonColor)}"`
+          : ""
+        } 
         type="submit" disabled>Zap</button>
     </form>
   `);
@@ -282,9 +296,10 @@ const renderAmountDialog = async ({
           invoice,
           relays: normalizedRelays,
           buttonColor,
+          fileUrl // Pass fileUrl to renderInvoiceDialog
         });
         const openWalletButton = invoiceDialog.querySelector(".cta-button");
-
+    
         amountDialog.close();
         invoiceDialog.showModal();
         openWalletButton.focus();
@@ -338,7 +353,8 @@ export const init = async ({
   cachedAmountDialog,
   buttonColor,
   anon,
-  satsAmount // Add satsAmount
+  satsAmount,
+  fileUrl // Add fileUrl
 }) => {
   let amountDialog = cachedAmountDialog;
   try {
@@ -349,7 +365,8 @@ export const init = async ({
         relays,
         buttonColor,
         anon,
-        satsAmount // Pass satsAmount
+        satsAmount,
+        fileUrl // Pass fileUrl to renderAmountDialog
       });
     }
     amountDialog.showModal();
@@ -379,6 +396,7 @@ export const initTarget = (targetEl) => {
     const buttonColor = targetEl.getAttribute("data-button-color");
     const anon = targetEl.getAttribute("data-anon") === "true";
     const satsAmount = targetEl.getAttribute("data-sats-amount"); // Extract satsAmount
+    const fileUrl = targetEl.getAttribute("data-file-url"); // Extract fileUrl
 
     if (cachedParams) {
       if (
@@ -387,13 +405,14 @@ export const initTarget = (targetEl) => {
         cachedParams.relays !== relays ||
         cachedParams.buttonColor !== buttonColor ||
         cachedParams.anon !== anon ||
-        cachedParams.satsAmount !== satsAmount // Compare satsAmount
+        cachedParams.satsAmount !== satsAmount || // Compare satsAmount
+        cachedParams.fileUrl !== fileUrl          // Compare fileUrl
       ) {
         cachedAmountDialog = null;
       }
     }
 
-    cachedParams = { npub, noteId, relays, buttonColor, anon, satsAmount };
+    cachedParams = { npub, noteId, relays, buttonColor, anon, satsAmount, fileUrl };
 
     cachedAmountDialog = await init({
       npub,
@@ -402,7 +421,8 @@ export const initTarget = (targetEl) => {
       cachedAmountDialog,
       buttonColor,
       anon,
-      satsAmount // Pass satsAmount
+      satsAmount, // Pass satsAmount
+      fileUrl     // Pass fileUrl
     });
   });
 };
