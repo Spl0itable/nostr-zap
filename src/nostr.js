@@ -20,9 +20,9 @@ export const getProfileMetadata = async (authorId) => {
   const pool = new SimplePool();
   const relays = [
     "wss://relay.nostr.band",
-    "wss://purplepag.es",
+    "wss://relay.primal.net",
     "wss://relay.damus.io",
-    "wss://nostr.wine",
+    "wss://relay.coinos.io",
   ];
 
   try {

@@ -180,7 +180,7 @@ const renderAmountDialog = async ({
     `${hex.substring(0, 12)}...${hex.substring(npub.length - 12)}`;
   const normalizedRelays = relays
     ? relays.split(",")
-    : ["wss://nostr.mutinywallet.com"];
+    : ["wss://sendit.nosflare.com"];
 
   const authorId = decodeNpub(npub);
   const metadataPromise = getProfileMetadata(authorId);
