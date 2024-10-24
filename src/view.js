@@ -100,11 +100,11 @@ const renderInvoiceDialog = ({
     <p>click QR code to copy invoice</p>
     <select name="lightning-wallet">
       ${options
-        .map(
-          ({ label, value }) =>
-            `<option value="${value}" ${cachedLightningUri === value ? "selected" : ""}>${label}</option>`
-        )
-        .join("")}
+      .map(
+        ({ label, value }) =>
+          `<option value="${value}" ${cachedLightningUri === value ? "selected" : ""}>${label}</option>`
+      )
+      .join("")}
     </select>
     <button class="cta-button"
       ${buttonColor ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(buttonColor)}"` : ""}
@@ -208,8 +208,8 @@ const renderAmountDialog = async ({
   // Updated amountDialog: prefill amount and disable input
   const amountDialog = renderDialog(`
     <button class="close-button">X</button>
+    <p>You're about to send Bitcoin to the file owner:</p><br/>
     <div class="dialog-header-container">
-    <p>You're about to send Bitcoin to the file owner:</p>
       <h2 class="skeleton-placeholder"></h2>
         <img
           src="${nostrichAvatar}"
@@ -218,18 +218,22 @@ const renderAmountDialog = async ({
           alt="placeholder avatar"
         />
       <p class="skeleton-placeholder"></p>
-    </div>
-    <div class="preset-zap-options-container" style="display: none;"></div>
+    </div><br/>
     <form>
-      <input name="amount" type="number" value="${satsAmount}" disabled /> <!-- Prefill and disable amount -->
-      <input name="comment" value="Zap to unlock ${fileUrl}" disabled /> <!-- Prefill comment with file URL -->
-      <button class="cta-button" 
-        ${buttonColor
-          ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(buttonColor)}"`
-          : ""
-        } 
-        type="submit" disabled>Zap</button>
-    </form>
+  <label for="amount">Amount in Satoshis:</label>
+  <p><strong>${satsAmount}</strong></p>
+  <input id="amount" name="amount" type="hidden" value="${satsAmount}" disabled /> <!-- Prefill and disable amount -->
+  <input id="comment" name="comment" type="hidden" value="Zap to unlock ${fileUrl}" disabled /> <!-- Prefill comment with file URL -->
+
+  <button class="cta-button"
+    ${buttonColor
+      ? `style="background-color: ${buttonColor}; color: ${getContrastingTextColor(buttonColor)}"`
+      : ""
+    }
+    type="submit" disabled>
+    Continue
+  </button>
+</form>
   `);
 
   const form = amountDialog.querySelector("form");
@@ -256,7 +260,7 @@ const renderAmountDialog = async ({
   };
   const setZapButtonToDefaultState = () => {
     zapButton.disabled = false;
-    zapButton.innerHTML = "Zap";
+    zapButton.innerHTML = "Continue";
   };
 
   amountDialog.addEventListener("close", function () {
@@ -299,7 +303,7 @@ const renderAmountDialog = async ({
           fileUrl // Pass fileUrl to renderInvoiceDialog
         });
         const openWalletButton = invoiceDialog.querySelector(".cta-button");
-    
+
         amountDialog.close();
         invoiceDialog.showModal();
         openWalletButton.focus();
@@ -455,6 +459,8 @@ export const injectCSS = () => {
       .nostr-zap-dialog form {
         padding: 0;
         width: 100%;
+        margin-left: auto;
+        margin-right: auto;
       }
       .nostr-zap-dialog img {
         display: inline;
@@ -499,14 +505,14 @@ export const injectCSS = () => {
         cursor: not-allowed;
       }
       .nostr-zap-dialog .cta-button {
-        background-color: #7f00ff;
+        background-color: #4CAF50;
         color: #fff;
         width: 100%;
         max-width: 100%;
         margin-top: 16px;
       }
       .nostr-zap-dialog .cta-button:hover {
-        background-color: indigo;
+        background-color: #45a049;
       }
       .nostr-zap-dialog .close-button {
         background-color: inherit;
